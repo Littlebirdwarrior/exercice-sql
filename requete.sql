@@ -77,19 +77,27 @@ GROUP BY
 
 -- 8. Nom du ou des personnages qui ont pris le plus de casques dans la bataille 'Bataille du village gaulois'.
 
-SELECT
-	bataille.nom_bataille,
-	personnage.nom_personnage,
-	prendre_casque.qte
+SELECT --requete primaire, additionne les quantité de casque
+	p.nom_personnage, --on affiche juste le nom des personnage (évitons de comsommer trop de ressource)
+	SUM(pc.qte) AS total
 FROM 
-	bataille
-	INNER JOIN prendre_casque ON bataille.id_bataille = prendre_casque.id_bataille --ordre de l'égalité n'a pas d'importance
-	INNER JOIN personnage ON personnage.id_personnage = prendre_casque.id_personnage
-WHERE
-	bataille.nom_bataille = 'Bataille du village gaulois'
-GROUP BY
-	bataille.id_bataille -- ok !
-
+	bataille b -- autre manière de déclarer des alias
+	INNER JOIN prendre_casque pc ON b.id_bataille = pc.id_bataille
+	INNER JOIN personnage p ON p.id_personnage = pc.id_personnage
+WHERE 
+	b.nom_bataille = 'Bataille du village gaulois' --instaure le filtre du village
+GROUP BY p.id_personnage --dès qu'il y a une fonction d'aggrégation, utiliser un GROUP BY
+HAVING total >= ALL (
+	SELECT --requête secondaire, faite en 1er, permet de sélectionner les casques
+		SUM(pc.qte)
+	FROM 
+		bataille b
+		INNER JOIN prendre_casque pc ON b.id_bataille = pc.id_bataille
+		INNER JOIN personnage p ON p.id_personnage = pc.id_personnage
+	WHERE 
+		b.nom_bataille = 'Bataille du village gaulois'
+	GROUP BY p.id_personnage
+)
 
 -- 9. Nom des personnages et leur quantité de potion bue (en les classant du plus grand buveur au plus petit).
 
@@ -192,16 +200,16 @@ WHERE EXISTS (
 
 -- 15. Nom du / des personnages qui n'ont pas le droit de boire de la potion 'Magique'. **
 SELECT
- 	GROUP_CONCAT(personnage.nom_personnage)
+ 	p.personnage.nom_personnage
 FROM
-	personnage
-	INNER JOIN autoriser_boire ON autoriser_boire.id_personnage = personnage.id_personnage
+	personnage p
+	INNER JOIN autoriser_boire a ON a.id_personnage = personnage.id_personnage
 	INNER JOIN potion ON potion.id_potion = autoriser_boire.id_potion
 WHERE 
 	nom_potion <> 'Magique'
 GROUP BY 
 	personnage.nom_personnage
-LIMIT 3
+
 
 -- _______________________________________________________________________________
 -- En écrivant toujours des requêtes SQL, modifiez la base de données comme suit :
@@ -302,3 +310,14 @@ WHERE prendre_casque.id_personnage = 5 AND prendre_casque.id_casque = 10
 --NOT EQUAL TO
 -- Pour exclure un enregistrement (ou une ligne) avec un identifiant spécifique d'une table dans une requête SQL, 
 -- vous pouvez utiliser la clause WHERE avec l'opérateur NOT EQUAL TO (<>).
+
+--ALL
+-- Dans le langage SQL, la commande ALL permet de comparer une valeur dans l’ensemble de valeurs d’une sous-requête. 
+-- En d’autres mots, cette commande permet de s’assurer qu’une condition est “égale”, “différente”, “supérieure”, “inférieure”, “supérieure ou égale” ou “inférieure ou égale” pour tous les résultats retourné par une sous-requête.
+
+-- toute les fonction d'agrégation on besoin d'un group by
+
+--Soucre
+--https://www.w3schools.com/sql/sql_any_all.asp
+-- https://www.programiz.com/sql/any-all
+--https://www.sqltutorial.org/sql-all/
